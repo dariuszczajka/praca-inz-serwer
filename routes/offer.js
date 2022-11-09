@@ -6,7 +6,7 @@ offerRoutes.get( "/all", async (req, res) => {
 
     const offers = await offerModel.find({});
     console.log(offers);
-
+    res.header("Access-Control-Allow-Origin", "*");
     res.json(offers);
 });
 
