@@ -9,7 +9,7 @@ const UserSchema = new mongoose.Schema({
     userLat: Number,
     userProfileLocation: String,
     registrationDate: Date,
-    cookieTokens: Array,
+    sessionToken: String,
     lastLogin: {
         type: Date,
         default: Date.now

@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 dotenv.config({ path: 'config.env' });
 const mongoose = require('mongoose');
 const mongoString = process.env.DATABASE_URL;
+var cors = require('cors')
+
 
 // database
 mongoose.connect(mongoString);
@@ -16,6 +18,7 @@ database.once('connected', () => {
 
 // express boilerplate
 const app = express();
+app.use(cors())
 app.use(express.json());
 
 app.listen(5000, () => {
