@@ -4,7 +4,8 @@ const offerSchema = new mongoose.Schema({
     name: String,
     desc: String,
     price: Number,
-    img: String,
+    //img: String,
+    img: Array,
     lat: Number,
     lon: Number,
     postDate: Date

@@ -32,3 +32,7 @@ app.use('/offer', offerRouter)
 // users
 const userRouter = require('./routes/user')
 app.use('/user', userRouter)
+
+// categories
+const categoryRouter = require('./routes/category')
+app.use('/category', categoryRouter)
