@@ -17,19 +17,22 @@ offerRoutes.get( "/all", async (req, res) => {
 offerRoutes.post( "/new", async (req, res) => {
     const data = new offerModel({
         name: req.body.name,
-        category: categoryModel.find({_id: req.body.category}),
+        //TODO: naprawa category
+        //category: categoryModel.find({_id: req.body.category}),
+        name: req.body.category,
         desc: req.body.desc,
         price: req.body.price,
         //img: req.body.img,
         //TODO: modul przesylania obrazkow na serwer
-        //lon: req.body.lon,
-        //lat: req.body.lat,
+        lon: req.body.lon,
+        lat: req.body.lat,
         postDate: Date.now()
     })
 
     try {
-        const dataToSave = data.save();
-        res.status(200).json(dataToSave)
+        console.log(data._id);
+        data.save();
+        res.status(200).json(data._id);
     }
     catch (error) {
         res.status(400).json({message: error.message})
@@ -46,8 +49,12 @@ offerRoutes.use(
 );
 
 offerRoutes.post('/uploadFile', async (req, res) => {
+    console.log('upload file!')
+    console.log(req.body.offerID)
     //check if userToken is valid
-    let inputDate = new Date().toISOString();
+
+    // user/token validation
+    /*let inputDate = new Date().toISOString();
     console.log('sessiontoken found: ' + req.body.sessionToken);
     console.log('userID found: ' + req.body.userID);
     const session = await sessionModel.findOne({
@@ -56,11 +63,11 @@ offerRoutes.post('/uploadFile', async (req, res) => {
         sessionExpires: { $gte: inputDate }
     });
 
-    console.log('sessions found: ' + session);
+    console.log('sessions found: ' + session);*/
 
     //check if offerId is valid and not already max amount of pictures
     const offer = await offerModel.findOne({
-        __id: req.body.offerID
+        _id: req.body.offerID
     })
 
     if(!offer) return res.sendStatus(400);
@@ -69,25 +76,50 @@ offerRoutes.post('/uploadFile', async (req, res) => {
     const {image} = req.files;
 
     // If no image submitted, exit
-    if (!image) return res.sendStatus(400);
+    if (!image) return res.sendStatus(402);
     // If file uploaded is not an image, exit
     // TODO: image validation
     //if (/^image/.test(image.mimetype)) return res.sendStatus(400);
 
-    let filePath = path.join(__dirname, '..', '/user_upload/', 'req.body.offerID');
-    let photoNumber = '1';
-    try {
+    let filePath = path.join(__dirname, '..', '/user_upload/', req.body.offerID, '/');
+    if (!fs.existsSync(filePath)){
+        fs.mkdirSync(filePath);
+    }
+
+    let databaseURL = 'http://localhost:5000/static/' + req.body.offerID + '/';
+
+/*    try {
         if (fs.existsSync(filePath)) {
              photoNumber = fs.readdirSync(filePath).length
         }
     } catch(err) {
         console.error(err)
+    }*/
+
+    let imageArray = [];
+
+    if(Array.isArray(image)){
+        console.log('it is an array');
+        imageArray = image;
     }
-    console.log(photoNumber)
+    else{
+        console.log('it not is an array');
+        imageArray.push(image);
+    }
 
-    // Move the uploaded image to our upload folder
-    image.mv(path.join(filePath, '/' , photoNumber));
+    let filePathTemplate = filePath;
+    let databaseURLTemplate = databaseURL;
+    for (let i=0;i<imageArray.length;i++) {
+        console.log(imageArray[i]);
+        let imageName = i+1;
+        filePath = filePathTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
+        databaseURL = databaseURLTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
 
+        // Move the uploaded image to our upload folder
+        imageArray[i].mv(filePath);
+
+        await offerModel.findOneAndUpdate({_id: req.body.offerID}, {$push: { img : databaseURL}});
+    }
     res.sendStatus(200);
 });
 
