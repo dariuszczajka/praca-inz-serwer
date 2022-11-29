@@ -4,10 +4,10 @@ const offerSchema = new mongoose.Schema({
     name: String,
     desc: String,
     price: Number,
-    //img: String,
     img: Array,
     lat: Number,
     lon: Number,
+    locationDetails: Object,
     postDate: Date
 })
 

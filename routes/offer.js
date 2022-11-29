@@ -6,6 +6,37 @@ const path = require("path");
 const sessionModel = require("../model/sessionModel");
 const userModel = require("../model/userModel");
 const fs = require('fs')
+const opencage = require('opencage-api-client');
+
+async function getLocationDataFromAPI(lat, lon, offerID){
+    opencage
+        .geocode({ q: lon+', '+lat, language: 'pl' })
+        .then((data) => {
+            // console.log(JSON.stringify(data));
+            if (data.results.length > 0) {
+                const place = data.results[0];
+                console.log(place.formatted);
+                console.log(place.components.road);
+                console.log(place.annotations.timezone.name);
+            } else {
+                console.log('status', data.status.message);
+                console.log('total_results', data.total_results);
+            }
+            writeLocationDataToDB(data.results, offerID);
+        })
+        .catch((error) => {
+            console.log('error', error.message);
+            if (error.status.code === 402) {
+                console.log('hit free trial daily limit');
+            }
+        });
+
+
+}
+
+async function writeLocationDataToDB(data, offerID) {
+    await offerModel.findOneAndUpdate({_id: offerID}, {$set: { locationDetails : data}});
+}
 
 offerRoutes.get( "/all", async (req, res) => {
 
@@ -19,7 +50,7 @@ offerRoutes.post( "/new", async (req, res) => {
         name: req.body.name,
         //TODO: naprawa category
         //category: categoryModel.find({_id: req.body.category}),
-        name: req.body.category,
+        category: req.body.category,
         desc: req.body.desc,
         price: req.body.price,
         //img: req.body.img,
@@ -28,6 +59,8 @@ offerRoutes.post( "/new", async (req, res) => {
         lat: req.body.lat,
         postDate: Date.now()
     })
+
+    await getLocationDataFromAPI(req.body.lon, req.body.lat, data._id);
 
     try {
         console.log(data._id);
