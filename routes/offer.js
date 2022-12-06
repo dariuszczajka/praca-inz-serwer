@@ -25,7 +25,7 @@ async function getLocationDataFromAPI(lat, lon, offerID){
             writeLocationDataToDB(data.results, offerID);
         })
         .catch((error) => {
-            console.log('error', error.message);
+            console.log('error', error.message)
             if (error.status.code === 402) {
                 console.log('hit free trial daily limit');
             }
@@ -41,6 +41,44 @@ async function writeLocationDataToDB(data, offerID) {
 offerRoutes.get( "/all", async (req, res) => {
 
     const offers = await offerModel.find({});
+    res.header("Access-Control-Allow-Origin", "*");
+    res.json(offers);
+});
+
+offerRoutes.get( "/filter", async (req, res) => {
+    let query = {}
+    query['$and']=[];
+
+    console.log(req.query)
+    if(req.query.city !== undefined){
+        query["$and"].push({ 'locationDetails.components.city': req.query.city});
+    }
+    if(req.query.onlyLocal !== undefined){
+        let southwest = req.query.southwest.split(',') // [0] - lat, [1] - lon '52.708011,22.294006'
+        let northeast = req.query.northeast.split(',') //                      '51.789931,19.585876'
+        console.log(southwest)
+        console.log(northeast)
+        query["$and"].push({ 'locationDetails.geometry.lat': {$gt: parseFloat(northeast[0]), $lt: parseFloat(southwest[0])}});
+        query["$and"].push({ 'locationDetails.geometry.lng': {$gt: parseFloat(northeast[1]), $lt: parseFloat(southwest[1])}});
+    }
+    if(req.query.category !== undefined){
+        query["$and"].push({ category: req.query.category });
+        console.log(req.query.category)
+    }
+    if(req.query.min !== undefined){
+        query["$and"].push({ price: {$gte: req.query.min }});
+        console.log(req.query.minPrice)
+    }
+    if(req.query.max !== undefined){
+        query["$and"].push({ price: {$lte: req.query.max}});
+        console.log(req.query.maxPrice)
+    }
+
+    console.log(query);
+    if(query['$and'] === []){
+        query = {}
+    }
+    const offers = await offerModel.find(query);
     res.header("Access-Control-Allow-Origin", "*");
     res.json(offers);
 });
