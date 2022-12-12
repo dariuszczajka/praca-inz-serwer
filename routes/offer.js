@@ -47,17 +47,17 @@ offerRoutes.get( "/all", async (req, res) => {
 
 offerRoutes.get( "/filter", async (req, res) => {
     let query = {}
-    query['$and']=[];
+
+    query["$and"] = []
 
     console.log(req.query)
     if(req.query.city !== undefined){
         query["$and"].push({ 'locationDetails.components.city': req.query.city});
     }
-    if(req.query.onlyLocal !== undefined){
+    if(req.query.onlyLocal !== undefined && req.query.onlyLocal !== 'false'
+        && req.query.southwest !== undefined && req.query.northeast !== undefined){
         let southwest = req.query.southwest.split(',') // [0] - lat, [1] - lon '52.708011,22.294006'
         let northeast = req.query.northeast.split(',') //                      '51.789931,19.585876'
-        console.log(southwest)
-        console.log(northeast)
         query["$and"].push({ 'locationDetails.geometry.lat': {$gt: parseFloat(northeast[0]), $lt: parseFloat(southwest[0])}});
         query["$and"].push({ 'locationDetails.geometry.lng': {$gt: parseFloat(northeast[1]), $lt: parseFloat(southwest[1])}});
     }
@@ -73,14 +73,38 @@ offerRoutes.get( "/filter", async (req, res) => {
         query["$and"].push({ price: {$lte: req.query.max}});
         console.log(req.query.maxPrice)
     }
-
-    console.log(query);
-    if(query['$and'] === []){
-        query = {}
+    let offers;
+    if(req.query.q !== undefined){
+        offers = await offerModel.find(
+            { $text: { $search: req.query.q } },
+            { score: { $meta: "textScore" } }
+        ).sort(
+            { score: { $meta: "textScore" } }
+        );
     }
-    const offers = await offerModel.find(query);
+    else{
+
+        if(query["$and"].length === 0){
+            offers = await offerModel.find({});
+        }else{
+            offers = await offerModel.find(query);
+        }
+    }
+
     res.header("Access-Control-Allow-Origin", "*");
     res.json(offers);
+});
+
+offerRoutes.get( "/search", async (req, res) => {
+    let foundOffers = await offerModel.find(
+            { $text: { $search: req.query.q } },
+            { score: { $meta: "textScore" } }
+        ).sort(
+        { score: { $meta: "textScore" } }
+        );
+
+    res.header("Access-Control-Allow-Origin", "*");
+    res.json(foundOffers);
 });
 
 offerRoutes.post( "/new", async (req, res) => {
