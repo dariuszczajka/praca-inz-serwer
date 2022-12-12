@@ -6,6 +6,37 @@ const path = require("path");
 const sessionModel = require("../model/sessionModel");
 const userModel = require("../model/userModel");
 const fs = require('fs')
+const opencage = require('opencage-api-client');
+
+async function getLocationDataFromAPI(lat, lon, offerID){
+    opencage
+        .geocode({ q: lon+', '+lat, language: 'pl' })
+        .then((data) => {
+            // console.log(JSON.stringify(data));
+            if (data.results.length > 0) {
+                const place = data.results[0];
+                console.log(place.formatted);
+                console.log(place.components.road);
+                console.log(place.annotations.timezone.name);
+            } else {
+                console.log('status', data.status.message);
+                console.log('total_results', data.total_results);
+            }
+            writeLocationDataToDB(data.results, offerID);
+        })
+        .catch((error) => {
+            console.log('error', error.message)
+            if (error.status.code === 402) {
+                console.log('hit free trial daily limit');
+            }
+        });
+
+
+}
+
+async function writeLocationDataToDB(data, offerID) {
+    await offerModel.findOneAndUpdate({_id: offerID}, {$set: { locationDetails : data}});
+}
 
 offerRoutes.get( "/all", async (req, res) => {
 
@@ -14,12 +45,74 @@ offerRoutes.get( "/all", async (req, res) => {
     res.json(offers);
 });
 
+offerRoutes.get( "/filter", async (req, res) => {
+    let query = {}
+
+    query["$and"] = []
+
+    console.log(req.query)
+    if(req.query.city !== undefined){
+        query["$and"].push({ 'locationDetails.components.city': req.query.city});
+    }
+    if(req.query.onlyLocal !== undefined && req.query.onlyLocal !== 'false'
+        && req.query.southwest !== undefined && req.query.northeast !== undefined){
+        let southwest = req.query.southwest.split(',') // [0] - lat, [1] - lon '52.708011,22.294006'
+        let northeast = req.query.northeast.split(',') //                      '51.789931,19.585876'
+        query["$and"].push({ 'locationDetails.geometry.lat': {$gt: parseFloat(northeast[0]), $lt: parseFloat(southwest[0])}});
+        query["$and"].push({ 'locationDetails.geometry.lng': {$gt: parseFloat(northeast[1]), $lt: parseFloat(southwest[1])}});
+    }
+    if(req.query.category !== undefined){
+        query["$and"].push({ category: req.query.category });
+        console.log(req.query.category)
+    }
+    if(req.query.min !== undefined){
+        query["$and"].push({ price: {$gte: req.query.min }});
+        console.log(req.query.minPrice)
+    }
+    if(req.query.max !== undefined){
+        query["$and"].push({ price: {$lte: req.query.max}});
+        console.log(req.query.maxPrice)
+    }
+    let offers;
+    if(req.query.q !== undefined){
+        offers = await offerModel.find(
+            { $text: { $search: req.query.q } },
+            { score: { $meta: "textScore" } }
+        ).sort(
+            { score: { $meta: "textScore" } }
+        );
+    }
+    else{
+
+        if(query["$and"].length === 0){
+            offers = await offerModel.find({});
+        }else{
+            offers = await offerModel.find(query);
+        }
+    }
+
+    res.header("Access-Control-Allow-Origin", "*");
+    res.json(offers);
+});
+
+offerRoutes.get( "/search", async (req, res) => {
+    let foundOffers = await offerModel.find(
+            { $text: { $search: req.query.q } },
+            { score: { $meta: "textScore" } }
+        ).sort(
+        { score: { $meta: "textScore" } }
+        );
+
+    res.header("Access-Control-Allow-Origin", "*");
+    res.json(foundOffers);
+});
+
 offerRoutes.post( "/new", async (req, res) => {
     const data = new offerModel({
         name: req.body.name,
         //TODO: naprawa category
         //category: categoryModel.find({_id: req.body.category}),
-        name: req.body.category,
+        category: req.body.category,
         desc: req.body.desc,
         price: req.body.price,
         //img: req.body.img,
@@ -28,6 +121,8 @@ offerRoutes.post( "/new", async (req, res) => {
         lat: req.body.lat,
         postDate: Date.now()
     })
+
+    await getLocationDataFromAPI(req.body.lon, req.body.lat, data._id);
 
     try {
         console.log(data._id);
