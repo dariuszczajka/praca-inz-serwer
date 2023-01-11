@@ -3,12 +3,18 @@ const userModel = require('../model/userModel');
 const sessionModel = require('../model/sessionModel');
 const {getDB} = require("../databaseConnection");
 const userRoutes = express.Router();
+const bcrypt = require('bcryptjs');
+const dotenv = require("dotenv");
+const jwt = require("jsonwebtoken");
+dotenv.config({ path: 'config.env' });
 
+userRoutes.post('/register', async (req, res) => {
+    let salt = bcrypt.genSaltSync(10);
+    const password = await bcrypt.hash(req.body.password,salt);
 
-userRoutes.post('/register', (req, res) => {
     const data = new userModel({
         username: req.body.username,
-        password: req.body.password,
+        password: password,
         email: req.body.email,
         phoneNumber: req.body.phoneNumber,
         registrationDate: Date.now()
@@ -36,6 +42,25 @@ userRoutes.post('/register', (req, res) => {
     }
 })
 
+const verifyUserLogin = async (username,password)=>{
+    try {
+        const user = await userModel.findOne({username}).lean()
+        if(!user){
+            return {status:'error',error:'user not found'}
+        }
+        if(await bcrypt.compare(password,user.password)){
+            // creating a JWT token
+            token = jwt.sign({id:user._id,username:user.username,type:'user'},process.env.JWT_SECRET,{ expiresIn: '2h'})
+            console.log(token);
+            return {username:user.username,status:'ok',data:token}
+        }
+        return {status:'error',error:'invalid password'}
+    } catch (error) {
+        console.log(error);
+        return {status:'error',error:'timed out'}
+    }
+}
+
 userRoutes.post( "/login", async (req, res) => {
     const user = await userModel.findOne({username: req.body.username});
     console.log(user);
@@ -44,33 +69,14 @@ userRoutes.post( "/login", async (req, res) => {
         res.status(404).json({message: 'user account not found'})
     }
     else{
-        if(user.username === req.body.username &&
-            user.password === req.body.password){
-
-            const token = new sessionModel({
-                userID: user._id
-            })
-
-            await token.save()
-
-            console.log(token._id);
-            console.log(user._id);
-
-            const updatedUser = await userModel.findOneAndUpdate({_id: user._id}, {$set: { sessionToken : token._id}});
-            updatedUser.save()
-
-            res.header("Access-Control-Allow-Origin", "*");
-            res.status(200).json({
-                username: updatedUser.username,
-                sessionToken: updatedUser.sessionToken,
-                validFrom: token.sessionCreated,
-                validTo: token.sessionExpires
-            });
+        const response = await verifyUserLogin(req.body.username,req.body.password);
+        if(response.status==='ok'){
+            // storing our JWT web token as a cookie in our browser
+            res.cookie('token',token,{ maxAge: 2 * 60 * 60 * 1000, httpOnly: true });  // maxAge: 2 hours
+            res.json(response);
         }else{
-            res.header("Access-Control-Allow-Origin", "*");
-            res.status(401).json({message: 'incorrect password'})
-        }
-    }
+            res.json(response);
+        }}
 });
 
 module.exports = userRoutes

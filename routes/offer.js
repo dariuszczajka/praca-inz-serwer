@@ -15,9 +15,6 @@ async function getLocationDataFromAPI(lat, lon, offerID){
             // console.log(JSON.stringify(data));
             if (data.results.length > 0) {
                 const place = data.results[0];
-                console.log(place.formatted);
-                console.log(place.components.road);
-                console.log(place.annotations.timezone.name);
             } else {
                 console.log('status', data.status.message);
                 console.log('total_results', data.total_results);
@@ -65,6 +62,10 @@ offerRoutes.get( "/filter", async (req, res) => {
         query["$and"].push({ category: req.query.category });
         console.log(req.query.category)
     }
+    if(req.query.filterByUser !== undefined){
+        query["$and"].push({ ownerID: req.query.filterByUser });
+        console.log(req.query.filterByUser)
+    }
     if(req.query.min !== undefined){
         query["$and"].push({ price: {$gte: req.query.min }});
         console.log(req.query.minPrice)
@@ -108,6 +109,7 @@ offerRoutes.get( "/search", async (req, res) => {
 });
 
 offerRoutes.post( "/new", async (req, res) => {
+
     const data = new offerModel({
         name: req.body.name,
         //TODO: naprawa category
@@ -119,7 +121,8 @@ offerRoutes.post( "/new", async (req, res) => {
         //TODO: modul przesylania obrazkow na serwer
         lon: req.body.lon,
         lat: req.body.lat,
-        postDate: Date.now()
+        postDate: Date.now(),
+        ownerID: req.body.ownerID
     })
 
     await getLocationDataFromAPI(req.body.lon, req.body.lat, data._id);
@@ -144,8 +147,6 @@ offerRoutes.use(
 );
 
 offerRoutes.post('/uploadFile', async (req, res) => {
-    console.log('upload file!')
-    console.log(req.body.offerID)
     //check if userToken is valid
 
     // user/token validation
