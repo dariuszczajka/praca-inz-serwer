@@ -8,7 +8,8 @@ const offerSchema = new mongoose.Schema({
     lat: Number,
     lon: Number,
     locationDetails: Object,
-    postDate: Date
+    postDate: Date,
+    ownerID: String
 })
 
 module.exports = mongoose.model('offer', offerSchema, 'offers')
