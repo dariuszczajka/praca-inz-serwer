@@ -109,6 +109,11 @@ offerRoutes.get( "/search", async (req, res) => {
 });
 
 offerRoutes.post( "/new", async (req, res) => {
+    let lonLocal = 0;
+    let latLocal = 0;
+
+    if(req.body.lon !== undefined) lonLocal = req.body.lon;
+    if(req.body.lat !== undefined) latLocal = req.body.lat;
 
     const data = new offerModel({
         name: req.body.name,
@@ -119,8 +124,8 @@ offerRoutes.post( "/new", async (req, res) => {
         price: req.body.price,
         //img: req.body.img,
         //TODO: modul przesylania obrazkow na serwer
-        lon: req.body.lon,
-        lat: req.body.lat,
+        lon: lonLocal,
+        lat: latLocal,
         postDate: Date.now(),
         ownerID: req.body.ownerID
     })
@@ -166,56 +171,57 @@ offerRoutes.post('/uploadFile', async (req, res) => {
         _id: req.body.offerID
     })
 
-    if(!offer) return res.sendStatus(400);
+
 
     // Get the file that was set to our field named "image"
-    const {image} = req.files;
+        const {image} = req.files;
 
-    // If no image submitted, exit
-    if (!image) return res.sendStatus(402);
-    // If file uploaded is not an image, exit
-    // TODO: image validation
-    //if (/^image/.test(image.mimetype)) return res.sendStatus(400);
+        // If no image submitted, exit
+        if(!offer) return res.sendStatus(400);
+        // If file uploaded is not an image, exit
+        // TODO: image validation
+        //if (/^image/.test(image.mimetype)) return res.sendStatus(400);
 
-    let filePath = path.join(__dirname, '..', '/user_upload/', req.body.offerID, '/');
-    if (!fs.existsSync(filePath)){
-        fs.mkdirSync(filePath);
-    }
-
-    let databaseURL = 'http://localhost:5000/static/' + req.body.offerID + '/';
-
-/*    try {
-        if (fs.existsSync(filePath)) {
-             photoNumber = fs.readdirSync(filePath).length
+        let filePath = path.join(__dirname, '..', '/user_upload/', req.body.offerID, '/');
+        if (!fs.existsSync(filePath)){
+            fs.mkdirSync(filePath);
         }
-    } catch(err) {
-        console.error(err)
-    }*/
 
-    let imageArray = [];
+        let databaseURL = 'http://localhost:5000/static/' + req.body.offerID + '/';
 
-    if(Array.isArray(image)){
-        console.log('it is an array');
-        imageArray = image;
-    }
-    else{
-        console.log('it not is an array');
-        imageArray.push(image);
-    }
+        /*    try {
+                if (fs.existsSync(filePath)) {
+                     photoNumber = fs.readdirSync(filePath).length
+                }
+            } catch(err) {
+                console.error(err)
+            }*/
 
-    let filePathTemplate = filePath;
-    let databaseURLTemplate = databaseURL;
-    for (let i=0;i<imageArray.length;i++) {
-        console.log(imageArray[i]);
-        let imageName = i+1;
-        filePath = filePathTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
-        databaseURL = databaseURLTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
+        let imageArray = [];
 
-        // Move the uploaded image to our upload folder
-        imageArray[i].mv(filePath);
+        if(Array.isArray(image)){
+            console.log('it is an array');
+            imageArray = image;
+        }
+        else{
+            console.log('it not is an array');
+            imageArray.push(image);
+        }
 
-        await offerModel.findOneAndUpdate({_id: req.body.offerID}, {$push: { img : databaseURL}});
-    }
+        let filePathTemplate = filePath;
+        let databaseURLTemplate = databaseURL;
+        for (let i=0;i<imageArray.length;i++) {
+            console.log(imageArray[i]);
+            let imageName = i+1;
+            filePath = filePathTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
+            databaseURL = databaseURLTemplate + imageName + '.' + imageArray[i].mimetype.split('/').slice(1);
+
+            // Move the uploaded image to our upload folder
+            imageArray[i].mv(filePath);
+
+            await offerModel.findOneAndUpdate({_id: req.body.offerID}, {$push: { img : databaseURL}});
+        }
+
     res.sendStatus(200);
 });
 
