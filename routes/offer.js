@@ -42,6 +42,12 @@ offerRoutes.get( "/all", async (req, res) => {
     res.json(offers);
 });
 
+offerRoutes.post( "/delete", async (req, res) => {
+    console.log(req.body.offerID);
+    await offerModel.deleteOne({_id: req.body.offerID});
+    res.header("Access-Control-Allow-Origin", "*");
+});
+
 offerRoutes.get( "/filter", async (req, res) => {
     let query = {}
 
@@ -114,6 +120,10 @@ offerRoutes.post( "/new", async (req, res) => {
 
     if(req.body.lon !== undefined) lonLocal = req.body.lon;
     if(req.body.lat !== undefined) latLocal = req.body.lat;
+
+    console.log(req.body.username)
+
+    const user = await userModel.findOne({username: req.body.username});
 
     const data = new offerModel({
         name: req.body.name,
