@@ -52,7 +52,7 @@ const verifyUserLogin = async (username,password)=>{
             // creating a JWT token
             token = jwt.sign({id:user._id,username:user.username,type:'user'},process.env.JWT_SECRET,{ expiresIn: '2h'})
             console.log(token);
-            return {username:user.username,status:'ok',data:token}
+            return {username:user.username,status:'ok',data:token, userId: user._id}
         }
         return {status:'error',error:'invalid password'}
     } catch (error) {
